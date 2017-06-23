@@ -108,7 +108,7 @@ function connect(urlString, mode) {
 			state = Mode.BCM;
 			channelMode(this['id'], mode);
 			module.exports.emit('connected', {url:this['url'], id:this['id']});
-		} else if (data == "< ok >") {
+		} else if (data == "< ok >" || data == "< ok >< ok >") {
 		} else if (data.match(/<\sframe.+>/i)) {
 			const m = data.match(/<\sframe\s([0-9a-fA-F]+)\s(\d+).(\d+)\s+([0-9a-fA-F]*\s?)*\s>/);
 			if (m) {
@@ -139,7 +139,11 @@ function connect(urlString, mode) {
 	scc.on('close', function(conn) {
 		module.exports.emit('disconnected', {url:this['url'], id:this['id']});
 	});
-
+	
+	scc.on('error', function(err) {
+		module.exports.emit('error', {url:this['url'], id:this['id'], error:err})
+	});
+	
 	return scc['id'];
 }
 
