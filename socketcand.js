@@ -98,37 +98,49 @@ function connect(urlString, mode) {
 	scc['id'] = shortid.generate();
 
 	activeConnections.push(scc);
-
-	// TODO rawdata sometimes bundled multiple < ok > etc in same frame, split and loop!
+	
 	scc.on('data', function(rawdata) {
-		var data = rawdata.toString();
-		module.exports.emit('data', data);
-		if (data == '< hi >') {
-			scc.write('< open '+iface+' >');
-			state = Mode.BCM;
-			channelMode(this['id'], mode);
-			module.exports.emit('connected', {url:this['url'], id:this['id']});
-		} else if (data == "< ok >" || data == "< ok >< ok >") {
-		} else if (data.match(/<\sframe.+>/i)) {
-			const m = data.match(/<\sframe\s([0-9a-fA-F]+)\s(\d+).(\d+)\s+([0-9a-fA-F]*\s?)*\s>/);
-			if (m) {
-				const frame = {
-					id: m[1],
-					sec: m[2],
-					usec: m[3],
-					data: m[4],
-					bus: iface,
-					url: this['url'],
-					sockId: this['id'],
-					mode: state
-				};
-				module.exports.emit('frame', frame)
-			} else {
-				return new Error("Error could not parse received frame, protocol inconsistency");
+		var strdata = rawdata.toString();
+		var alldata;
+		if (strdata.indexOf("><") > -1) {
+			alldata = strdata.split("><");
+			for (var x = 0; x < alldata.length; x++) {
+				if (x < alldata.length - 1) alldata[x] += '>';
+				if (x > 0) alldata[x] = '<' + alldata[x];
 			}
 		} else {
-			// TODO handle this better!
-			console.log('Unknown command received ' + data.toString());
+			alldata = [strdata];
+		}
+		for (var i = 0; i < alldata.length; i++) {
+			var data = alldata[i];
+			module.exports.emit('data', data);
+			if (data == '< hi >') {
+				scc.write('< open '+iface+' >');
+				state = Mode.BCM;
+				channelMode(this['id'], mode);
+				module.exports.emit('connected', {url:this['url'], id:this['id']});
+			} else if (data == "< ok >") {
+			} else if (data.match(/<\sframe.+>/i)) {
+				const m = data.match(/<\sframe\s([0-9a-fA-F]+)\s(\d+).(\d+)\s+([0-9a-fA-F]*\s?)*\s>/);
+				if (m) {
+					const frame = {
+						id: m[1],
+						sec: m[2],
+						usec: m[3],
+						data: m[4],
+						bus: iface,
+						url: this['url'],
+						sockId: this['id'],
+						mode: state
+					};
+					module.exports.emit('frame', frame)
+				} else {
+					return new Error("Error could not parse received frame, protocol inconsistency");
+				}
+			} else {
+				// TODO handle this better!
+				console.log('Unknown command received ' + data.toString());
+			}
 		}
 	});
 	
